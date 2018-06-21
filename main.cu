@@ -75,23 +75,39 @@ static double forward_pass(double data[28][28])
 	start = clock();
 
 	l_input.setOutput((float *)input);
-	fprintf(stdout ,"Start GPU\n");
+	//fprintf(stdout ,"Conv1\n");
 	fp_preact_c1<<<128, 128>>>((float (*)[28])l_input.output, (float (*)[24][24])l_c1.preact, (float (*)[5][5])l_c1.weight);
-	fprintf(stdout ,"After Conv\n");
 	fp_bias_c1<<<128, 128>>>((float (*)[24][24])l_c1.preact, l_c1.bias);
-	fprintf(stdout ,"After Bais\n");
 	apply_step_function<<<128, 128>>>(l_c1.preact, l_c1.output, l_c1.O);
-	fprintf(stdout ,"After Action Function\n");
-	fprintf(stdout ,"After Conv Layer\n");
+
+	//fprintf(stdout ,"Pool1\n");
 	fp_preact_s1<<<128, 128>>>((float (*)[24][24])l_c1.output, (float (*)[12][12])l_s1.preact, (float (*)[2][2])l_s1.weight);
-	fprintf(stdout ,"After Pooling\n");
 	fp_bias_s1<<<128, 128>>>((float (*)[12][12])l_s1.preact, l_s1.bias);
-	fprintf(stdout ,"After Bais\n");
 	apply_step_function<<<128, 128>>>(l_s1.preact, l_s1.output, l_s1.O);
-	fprintf(stdout ,"After Action Function\n");
-	//fp_preact_f<<<128, 128>>>((float (*)[6][6])l_s1.output, l_f.preact, (float (*)[6][6][6])l_f.weight);
-	//fp_bias_f<<<128, 128>>>(l_f.preact, l_f.bias);
-	//apply_step_function<<<128, 128>>>(l_f.preact, l_f.output, l_f.O);
+
+	//fprintf(stdout ,"Conv2\n");
+	fp_preact_c2<<<128, 128>>>((float (*)[12][12])l_s1.output, (float (*)[8][8])l_c2.preact, (float (*)[6][5][5])l_c2.weight);
+	fp_bias_c2<<<128, 128>>>((float (*)[8][8])l_c2.preact, l_c2.bias);
+	apply_step_function<<<128, 128>>>(l_c2.preact, l_c2.output, l_c2.O);
+
+	//fprintf(stdout ,"Pool2\n");
+	fp_preact_s2<<<128, 128>>>((float (*)[8][8])l_c2.output, (float (*)[4][4])l_s2.preact, (float (*)[2][2])l_s2.weight);
+	fp_bias_s2<<<128, 128>>>((float (*)[4][4])l_s2.preact, l_s2.bias);
+	apply_step_function<<<128, 128>>>(l_s2.preact, l_s2.output, l_s2.O);
+	
+	//fprintf(stdout ,"Conv3\n");
+	fp_preact_c3<<<128, 128>>>((float (*)[4][4])l_s2.output, l_c3.preact, (float (*)[16][4][4])l_c3.weight);
+	fp_bias_c3<<<128, 128>>>(l_c3.preact, l_c3.bias);
+	apply_step_function<<<128, 128>>>(l_c3.preact, l_c3.output, l_c3.O);
+
+	fp_preact_f1<<<128, 128>>>(l_c3.output, l_f1.preact, (float (*)[120])l_f1.weight);
+	fp_bias_f1<<<128, 128>>>(l_f1.preact, l_f1.bias);
+	apply_step_function<<<128, 128>>>(l_f1.preact, l_f1.output, l_f1.O);
+
+	fp_preact_f2<<<128, 128>>>(l_f2.output, l_f2.preact, (float (*)[84])l_f2.weight);
+	fp_bias_f2<<<128, 128>>>(l_f2.preact, l_f2.bias);
+	apply_step_function<<<128, 128>>>(l_f2.preact, l_f2.output, l_f2.O);
+
 	
 	end = clock();
 	return ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -177,7 +193,7 @@ static void learn()
 		}
 
 		err /= train_cnt;
-		//fprintf(stdout, "error: %e, time_on_gpu: %lf\n", err, time_taken);
+		fprintf(stdout, "error: %e, time_on_gpu: %lf\n", err, time_taken);
 
 		if (err < threshold) {
 			fprintf(stdout, "Training complete, error less than threshold\n\n");
