@@ -81,7 +81,7 @@ static double forward_pass(double data[28][28])
 	apply_step_function<<<128, 128>>>(l_c1.preact, l_c1.output, l_c1.O);
 
 	//fprintf(stdout ,"Pool1\n");
-	fp_preact_s1<<<128, 128>>>((float (*)[24][24])l_c1.output, (float (*)[12][12])l_s1.preact, (float (*)[2][2])l_s1.weight);
+	fp_preact_s1<<<128, 8>>>((float (*)[24][24])l_c1.output, (float (*)[12][12])l_s1.preact, (float (*)[2][2])l_s1.weight);
 	fp_bias_s1<<<128, 128>>>((float (*)[12][12])l_s1.preact, l_s1.bias);
 	apply_step_function<<<128, 128>>>(l_s1.preact, l_s1.output, l_s1.O);
 
