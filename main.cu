@@ -99,16 +99,18 @@ static double forward_pass(double data[28][28])
 	fp_preact_c3<<<128, 128>>>((float (*)[4][4])l_s2.output, l_c3.preact, (float (*)[16][4][4])l_c3.weight);
 	fp_bias_c3<<<128, 128>>>(l_c3.preact, l_c3.bias);
 	apply_step_function<<<128, 128>>>(l_c3.preact, l_c3.output, l_c3.O);
-
+	
+	//fprintf(stdout ,"Full1\n");
 	fp_preact_f1<<<128, 128>>>(l_c3.output, l_f1.preact, (float (*)[120])l_f1.weight);
 	fp_bias_f1<<<128, 128>>>(l_f1.preact, l_f1.bias);
 	apply_step_function<<<128, 128>>>(l_f1.preact, l_f1.output, l_f1.O);
-
+	
+	//fprintf(stdout ,"Full2\n");
 	fp_preact_f2<<<128, 128>>>(l_f2.output, l_f2.preact, (float (*)[84])l_f2.weight);
 	fp_bias_f2<<<128, 128>>>(l_f2.preact, l_f2.bias);
 	apply_step_function<<<128, 128>>>(l_f2.preact, l_f2.output, l_f2.O);
 
-	
+	//fprintf(stdout ,"forward pass done!!\n");
 	end = clock();
 	return ((double) (end - start)) / CLOCKS_PER_SEC;
 }
@@ -120,23 +122,49 @@ static double back_pass()
 
 	start = clock();
 
-	//bp_weight_f<<<128, 128>>>((float (*)[6][6][6])l_f.d_weight, l_f.d_preact, (float (*)[6][6])l_s1.output);
-	//bp_bias_f<<<128, 128>>>(l_f.bias, l_f.d_preact);
+	bp_weight_f2<<<128, 128>>>((float (*)[84])l_f2.d_weight, l_f2.d_preact, l_f1.output);
+	bp_bias_f2<<<128, 128>>>(l_f2.bias, l_f2.d_preact);
 
-	//bp_output_s1<<<128, 128>>>((float (*)[6][6])l_s1.d_output, (float (*)[6][6][6])l_f.weight, l_f.d_preact);
-	//bp_preact_s1<<<128, 128>>>((float (*)[6][6])l_s1.d_preact, (float (*)[6][6])l_s1.d_output, (float (*)[6][6])l_s1.preact);
-	//bp_weight_s1<<<128, 128>>>((float (*)[4][4])l_s1.d_weight, (float (*)[6][6])l_s1.d_preact, (float (*)[24][24])l_c1.output);
-	//bp_bias_s1<<<128, 128>>>(l_s1.bias, (float (*)[6][6])l_s1.d_preact);
+	bp_output_f1<<<128, 128>>>(l_f1.d_output, (float (*)[84])l_f2.weight, l_f2.d_preact);
+	bp_preact_f1<<<128, 128>>>(l_f1.d_preact, l_f1.d_output, l_f1.preact);
+	bp_weight_f1<<<128, 128>>>((float (*)[120])l_f1.d_weight, l_f1.d_preact, l_c3.output);
+	bp_bias_f1<<<128, 128>>>(l_f1.bias, l_f1.d_preact);
 
-	//bp_output_c1<<<128, 128>>>((float (*)[24][24])l_c1.d_output, (float (*)[4][4])l_s1.weight, (float (*)[6][6])l_s1.d_preact);
-	//bp_preact_c1<<<128, 128>>>((float (*)[24][24])l_c1.d_preact, (float (*)[24][24])l_c1.d_output, (float (*)[24][24])l_c1.preact);
-	//bp_weight_c1<<<128, 128>>>((float (*)[5][5])l_c1.d_weight, (float (*)[24][24])l_c1.d_preact, (float (*)[28])l_input.output);
-	//bp_bias_c1<<<128, 128>>>(l_c1.bias, (float (*)[24][24])l_c1.d_preact);
+	bp_output_c3<<<128, 128>>>(l_c3.d_output, (float (*)[120])l_f1.weight, l_f1.d_preact);
+	bp_preact_c3<<<128, 128>>>(l_c3.d_preact, l_c3.d_output, l_c3.preact);
+	bp_weight_c3<<<128, 128>>>((float (*)[16][4][4])l_c3.d_weight, l_c3.d_preact, (float (*)[4][4])l_s2.output);
+	bp_bias_c3<<<128, 128>>>(l_c3.bias, l_c3.d_preact);
+
+	bp_output_s2<<<128, 128>>>((float (*)[4][4])l_s2.d_output, (float (*)[16][4][4])l_c3.weight, l_c3.d_preact);
+	bp_preact_s2<<<128, 128>>>((float (*)[4][4])l_s2.d_preact, (float (*)[4][4])l_s2.d_output, (float (*)[4][4])l_s2.preact);
+	bp_weight_s2<<<128, 128>>>((float (*)[2][2])l_s2.d_weight, (float (*)[4][4])l_s2.d_preact, (float (*)[8][8])l_c2.output);
+	bp_bias_s2<<<128, 128>>>(l_s2.bias, (float (*)[4][4])l_s2.d_preact);
+	
+	bp_output_c2<<<128, 128>>>((float (*)[8][8])l_c2.d_output, (float (*)[2][2])l_s2.weight, (float (*)[4][4])l_s2.d_preact);
+	bp_preact_c2<<<128, 128>>>((float (*)[8][8])l_c2.d_preact, (float (*)[8][8])l_c2.d_output, (float (*)[8][8])l_c2.preact);
+	bp_weight_c2<<<128, 128>>>((float (*)[6][5][5])l_c2.d_weight, (float (*)[8][8])l_c2.d_preact, (float (*)[12][12])l_s1.output);
+	bp_bias_c2<<<128, 128>>>(l_c2.bias, (float (*)[8][8])l_c2.d_preact);
 
 
-	//apply_grad<<<128, 128>>>(l_f.weight, l_f.d_weight, l_f.M * l_f.N);
-	//apply_grad<<<128, 128>>>(l_s1.weight, l_s1.d_weight, l_s1.M * l_s1.N);
-	//apply_grad<<<128, 128>>>(l_c1.weight, l_c1.d_weight, l_c1.M * l_c1.N);
+	bp_output_s1<<<128, 128>>>((float (*)[12][12])l_s1.d_output, (float (*)[6][5][5])l_c2.weight, (float (*)[8][8])l_c2.d_preact);
+	bp_preact_s1<<<128, 128>>>((float (*)[12][12])l_s1.d_preact, (float (*)[12][12])l_s1.d_output, (float (*)[12][12])l_s1.preact);
+	bp_weight_s1<<<128, 128>>>((float (*)[2][2])l_s1.d_weight, (float (*)[12][12])l_s1.d_preact, (float (*)[24][24])l_c1.output);
+	bp_bias_s1<<<128, 128>>>(l_s1.bias, (float (*)[12][12])l_s1.d_preact);
+
+	bp_output_c1<<<128, 128>>>((float (*)[24][24])l_c1.d_output, (float (*)[2][2])l_s1.weight, (float (*)[12][12])l_s1.d_preact);
+	bp_preact_c1<<<128, 128>>>((float (*)[24][24])l_c1.d_preact, (float (*)[24][24])l_c1.d_output, (float (*)[24][24])l_c1.preact);
+	bp_weight_c1<<<128, 128>>>((float (*)[5][5])l_c1.d_weight, (float (*)[24][24])l_c1.d_preact, (float (*)[28])l_input.output);
+	bp_bias_c1<<<128, 128>>>(l_c1.bias, (float (*)[24][24])l_c1.d_preact);
+
+
+	apply_grad<<<128, 128>>>(l_f2.weight, l_f2.d_weight, l_f2.M * l_f2.N);
+	apply_grad<<<128, 128>>>(l_f1.weight, l_f1.d_weight, l_f1.M * l_f1.N);
+	apply_grad<<<128, 128>>>(l_c3.weight, l_c3.d_weight, l_c3.M * l_c3.N);
+	apply_grad<<<128, 128>>>(l_s2.weight, l_s2.d_weight, l_s2.M * l_s2.N);
+	apply_grad<<<128, 128>>>(l_c2.weight, l_c2.d_weight, l_c2.M * l_c2.N);
+	apply_grad<<<128, 128>>>(l_s1.weight, l_s1.d_weight, l_s1.M * l_s1.N);
+	apply_grad<<<128, 128>>>(l_c1.weight, l_c1.d_weight, l_c1.M * l_c1.N);
+
 
 	end = clock();
 	return ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -175,20 +203,24 @@ static void learn()
 
 		for (int i = 0; i < train_cnt; ++i) {
 			float tmp_err;
-			//fprintf(stdout ,"Before Forward_Pass\n");
+			//fprintf(stdout ,"Before Forward_Pass\n %d\n", i);
 			time_taken += forward_pass(train_set[i].data);
 			//fprintf(stdout ,"After Forward_Pass\n");
-			//l_f.bp_clear();
-			//l_s1.bp_clear();
-			//l_c1.bp_clear();
+			l_f2.bp_clear();
+			l_f1.bp_clear();
+			l_s2.bp_clear();
+			l_s1.bp_clear();
+			l_c3.bp_clear();
+			l_c2.bp_clear();
+			l_c1.bp_clear();
 
 			// Euclid distance of train_set[i]
-			//makeError<<<10, 1>>>(l_f.d_preact, l_f.output, train_set[i].label, 10);
+			makeError<<<10, 1>>>(l_f2.d_preact, l_f2.output, train_set[i].label, 10);
 			//cublasSnrm2(blas, 10, l_f.d_preact, 1, &tmp_err);
 			tmp_err = 0.01;
 			err += tmp_err;
 			//fprintf(stdout ,"Before Backward_Pass\n");
-			//time_taken += back_pass();
+			time_taken += back_pass();
 			//fprintf(stdout ,"After Backward_Pass\n");
 		}
 

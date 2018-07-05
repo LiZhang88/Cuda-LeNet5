@@ -385,6 +385,7 @@ __global__ void bp_bias_f2(float bias[10], float d_preact[10])
 	}
 }
 
+// output to f1
 __global__ void bp_output_f1(float d_output[84], float n_weight[10][84], float nd_preact[10])
 {
 	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
@@ -448,6 +449,7 @@ __global__ void bp_bias_f1(float bias[84], float d_preact[84])
 	}
 }
 
+// output to c3
 __global__ void bp_output_c3(float d_output[120], float n_weight[84][120], float nd_preact[84])
 {
 	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
@@ -460,7 +462,7 @@ __global__ void bp_output_c3(float d_output[120], float n_weight[84][120], float
 		const int i1 = ((idx /= 1	) % 84);
 		const int i2 = ((idx /= 84	) % 120);
 
-		atomicAdd(&d_output[i2], n_weight[i1][i2] * nd_preact[i2]);
+		atomicAdd(&d_output[i2], n_weight[i1][i2] * nd_preact[i1]);
 	}
 }
 
@@ -513,7 +515,7 @@ __global__ void bp_bias_c3(float bias[120], float d_preact[120])
 	}
 }
 
-
+// output to s2
 __global__ void bp_output_s2(float d_output[16][4][4], float n_weight[120][16][4][4], float nd_preact[120])
 {
 	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
@@ -586,37 +588,39 @@ __global__ void bp_bias_s2(float bias[1], float d_preact[16][4][4])
 	}
 }
 
-////////////////////////////////////////////////////////////////////////////////////////
-__global__ void bp_output_s1(float d_output[6][6][6], float n_weight[10][6][6][6], float nd_preact[10])
+// output to c2
+__global__ void bp_output_c2(float d_output[16][8][8], float n_weight[1][2][2], float nd_preact[16][4][4])
 {
 	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
 	const int size = blockDim.x * gridDim.x;
 
-	const int N = 10*6*6*6;
+	const int N = 1*2*2*16*4*4;
 
 	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
 		int idx = n;
-		const int i1 = ((idx /= 1	) % 10);
-		const int i2 = ((idx /= 10	) % 6);
-		const int i3 = ((idx /= 6	) % 6);
-		const int i4 = ((idx /= 6	) % 6);
+		const int i1 = ((idx /= 1	) % 1);
+		const int i2 = ((idx /= 1	) % 2);
+		const int i3 = ((idx /= 2	) % 2);
+		const int i4 = ((idx /= 2	) % 16);
+		const int i5 = ((idx /= 16	) % 4);
+		const int i6 = ((idx /= 4	) % 4);
 
-		atomicAdd(&d_output[i2][i3][i4], n_weight[i1][i2][i3][i4] * nd_preact[i1]);
+		atomicAdd(&d_output[i4][i5 * 2 + i2][i6 * 2 + i3], n_weight[i1][i2][i3] * nd_preact[i4][i5][i6]);
 	}
 }
 
-__global__ void bp_preact_s1(float d_preact[6][6][6], float d_output[6][6][6], float preact[6][6][6])
+__global__ void bp_preact_c2(float d_preact[16][8][8], float d_output[16][8][8], float preact[16][8][8])
 {
 	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
 	const int size = blockDim.x * gridDim.x;
 
-	const int N = 6*6*6;
+	const int N = 16 * 8 * 8;
 
 	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
 		int idx = n;
-		const int i1 = ((idx /= 1	) % 6);
-		const int i2 = ((idx /= 6	) % 6);
-		const int i3 = ((idx /= 6	) % 6);
+		const int i1 = ((idx /= 1	) % 16);
+		const int i2 = ((idx /= 16	) % 8);
+		const int i3 = ((idx /= 8	) % 8);
 
 		const float o = step_function(preact[i1][i2][i3]);
 
@@ -624,62 +628,140 @@ __global__ void bp_preact_s1(float d_preact[6][6][6], float d_output[6][6][6], f
 	}
 }
 
-__global__ void bp_weight_s1(float d_weight[1][4][4], float d_preact[6][6][6], float p_output[6][24][24])
+__global__ void bp_weight_c2(float d_weight[16][6][5][5], float d_preact[16][8][8], float p_output[6][12][12])
 {
 	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
 	const int size = blockDim.x * gridDim.x;
 
-	const int N = 1*4*4*6*6*6;
-	const float d = pow(6.0f, 3.0f);
+	const int N = 16*6*5*5*8*8;
 
 	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
 		int idx = n;
-		const int i1 = ((idx /= 1	) % 1);
-		const int i2 = ((idx /= 1	) % 4);
-		const int i3 = ((idx /= 4	) % 4);
-		const int i4 = ((idx /= 4	) % 6);
-		const int i5 = ((idx /= 6	) % 6);
-		const int i6 = ((idx /= 6	) % 6);
+		const int i1 = ((idx /= 1	) % 16);
+		const int i2 = ((idx /= 16	) % 6);
+		const int i3 = ((idx /= 6	) % 5);
+		const int i4 = ((idx /= 5	) % 5);
+		const int i5 = ((idx /= 5	) % 8);
+		const int i6 = ((idx /= 8	) % 8);
 
-		atomicAdd(&d_weight[i1][i2][i3], d_preact[i4][i5][i6] * p_output[i4][i5 * 4 + i2][i6 * 4 + i3]);
+		atomicAdd(&d_weight[i1][i2][i3][i4], d_preact[i1][i5][i6] * p_output[i2][i5+i3][i6+i4]);
 	}
 }
 
-__global__ void bp_bias_s1(float bias[1], float d_preact[6][6][6])
+__global__ void bp_bias_c2(float bias[16], float d_preact[16][8][8])
 {
 	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
 	const int size = blockDim.x * gridDim.x;
 
-	const int N = 6*6*6;
-	const float d = pow(6.0f, 3.0f);
+	const int N = 16*8*8;
+
+	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
+		int idx = n;
+		const int i1 = ((idx /= 1 ) % 16);
+  		const int i2 = ((idx /= 16 ) % 8);
+  		const int i3 = ((idx /= 8 ) % 8);
+
+  		atomicAdd(&bias[i1], dt * d_preact[i1][i2][i3]);	
+	}
+}
+
+//output s1
+__global__ void bp_output_s1(float d_output[6][12][12], float n_weight[16][6][5][5], float nd_preact[16][8][8])
+{
+	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
+	const int size = blockDim.x * gridDim.x;
+
+	const int N = 16*6*5*5*8*8;
+
+	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
+		int idx = n;
+		const int i1 = ((idx /= 1	) % 16);
+		const int i2 = ((idx /= 16	) % 6);
+		const int i3 = ((idx /= 6	) % 5);
+		const int i4 = ((idx /= 5	) % 5);
+		const int i5 = ((idx /= 5	) % 8);
+		const int i6 = ((idx /= 8	) % 8);
+
+		atomicAdd(&d_output[i2][i3+i5][i4+i6], n_weight[i1][i2][i3][i4] * nd_preact[i1][i5][i6]);
+	}
+}
+
+__global__ void bp_preact_s1(float d_preact[6][12][12], float d_output[6][12][12], float preact[6][12][12])
+{
+	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
+	const int size = blockDim.x * gridDim.x;
+
+	const int N = 6*12*12;
 
 	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
 		int idx = n;
 		const int i1 = ((idx /= 1	) % 6);
-		const int i2 = ((idx /= 6	) % 6);
-		const int i3 = ((idx /= 6	) % 6);
+		const int i2 = ((idx /= 6	) % 12);
+		const int i3 = ((idx /= 12	) % 12);
 
-		atomicAdd(&bias[0], dt * d_preact[i1][i2][i3] / d);
+		const float o = step_function(preact[i1][i2][i3]);
+
+		d_preact[i1][i2][i3] = d_output[i1][i2][i3] * o * (1 - o);
 	}
 }
 
-__global__ void bp_output_c1(float d_output[6][24][24], float n_weight[1][4][4], float nd_preact[6][6][6])
+__global__ void bp_weight_s1(float d_weight[1][2][2], float d_preact[6][12][12], float p_output[6][24][24])
 {
 	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
 	const int size = blockDim.x * gridDim.x;
 
-	const int N = 1*4*4*6*6*6;
+	const int N = 1*2*2*6*12*12;
+	const float d = pow(6.0f, 3.0f);
 
 	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
 		int idx = n;
 		const int i1 = ((idx /= 1	) % 1);
-		const int i2 = ((idx /= 1	) % 4);
-		const int i3 = ((idx /= 4	) % 4);
-		const int i4 = ((idx /= 4	) % 6);
-		const int i5 = ((idx /= 6	) % 6);
-		const int i6 = ((idx /= 6	) % 6);
+		const int i2 = ((idx /= 1	) % 2);
+		const int i3 = ((idx /= 2	) % 2);
+		const int i4 = ((idx /= 2	) % 6);
+		const int i5 = ((idx /= 6	) % 12);
+		const int i6 = ((idx /= 12	) % 12);
 
-		atomicAdd(&d_output[i4][i5 * 4 + i2][i6 * 4 + i3], n_weight[i1][i2][i3] * nd_preact[i4][i5][i6]);
+		atomicAdd(&d_weight[i1][i2][i3], d_preact[i4][i5][i6] * p_output[i4][i5 * 2 + i2][i6 * 2 + i3]);
+	}
+}
+
+__global__ void bp_bias_s1(float bias[1], float d_preact[6][12][12])
+{
+	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
+	const int size = blockDim.x * gridDim.x;
+
+	const int N = 6*12*12;
+	//const float d = pow(6.0f, 3.0f);
+
+	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
+		int idx = n;
+		const int i1 = ((idx /= 1	) % 6);
+		const int i2 = ((idx /= 6	) % 12);
+		const int i3 = ((idx /= 12	) % 12);
+
+		atomicAdd(&bias[0], dt * d_preact[i1][i2][i3] / N);
+	}
+}
+
+//output c1
+__global__ void bp_output_c1(float d_output[6][24][24], float n_weight[1][2][2], float nd_preact[6][12][12])
+{
+	const int pos = blockIdx.x * blockDim.x + threadIdx.x;
+	const int size = blockDim.x * gridDim.x;
+
+	const int N = 1*2*2*6*12*12;
+
+	for (int n = N * pos / size; n < N * (pos+1) / size; ++n) {
+		int idx = n;
+		const int i1 = ((idx /= 1	) % 1);
+		const int i2 = ((idx /= 1	) % 2);
+		const int i3 = ((idx /= 2	) % 2);
+		const int i4 = ((idx /= 2	) % 6);
+		const int i5 = ((idx /= 6	) % 12);
+		const int i6 = ((idx /= 12	) % 12);
+
+		atomicAdd(&d_output[i4][i5 * 2 + i2][i6 * 2 + i3], n_weight[i1][i2][i3] * nd_preact[i4][i5][i6]);
 	}
 }
 
