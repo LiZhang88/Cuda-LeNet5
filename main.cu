@@ -46,7 +46,7 @@ int main(int argc, const  char **argv)
 	*/
 	loaddata();
 	learn();
-	//test();
+	test();
 
 	return 0;
 }
@@ -75,42 +75,42 @@ static double forward_pass(double data[28][28])
 	start = clock();
 
 	l_input.setOutput((float *)input);
-	//fprintf(stdout ,"Conv1\n");
+	fprintf(stdout ,"Conv1 Forwarding\n");
 	fp_preact_c1<<<128, 128>>>((float (*)[28])l_input.output, (float (*)[24][24])l_c1.preact, (float (*)[5][5])l_c1.weight);
 	fp_bias_c1<<<128, 128>>>((float (*)[24][24])l_c1.preact, l_c1.bias);
 	apply_step_function<<<128, 128>>>(l_c1.preact, l_c1.output, l_c1.O);
 
-	//fprintf(stdout ,"Pool1\n");
+	fprintf(stdout ,"Pool1 Forwarding\n");
 	fp_preact_s1<<<128, 8>>>((float (*)[24][24])l_c1.output, (float (*)[12][12])l_s1.preact, (float (*)[2][2])l_s1.weight);
 	fp_bias_s1<<<128, 128>>>((float (*)[12][12])l_s1.preact, l_s1.bias);
 	apply_step_function<<<128, 128>>>(l_s1.preact, l_s1.output, l_s1.O);
 
-	//fprintf(stdout ,"Conv2\n");
+	fprintf(stdout ,"Conv2 Forwarding\n");
 	fp_preact_c2<<<128, 128>>>((float (*)[12][12])l_s1.output, (float (*)[8][8])l_c2.preact, (float (*)[6][5][5])l_c2.weight);
 	fp_bias_c2<<<128, 128>>>((float (*)[8][8])l_c2.preact, l_c2.bias);
 	apply_step_function<<<128, 128>>>(l_c2.preact, l_c2.output, l_c2.O);
 
-	//fprintf(stdout ,"Pool2\n");
+	fprintf(stdout ,"Pool2 Forwarding\n");
 	fp_preact_s2<<<128, 128>>>((float (*)[8][8])l_c2.output, (float (*)[4][4])l_s2.preact, (float (*)[2][2])l_s2.weight);
 	fp_bias_s2<<<128, 128>>>((float (*)[4][4])l_s2.preact, l_s2.bias);
 	apply_step_function<<<128, 128>>>(l_s2.preact, l_s2.output, l_s2.O);
 	
-	//fprintf(stdout ,"Conv3\n");
+	fprintf(stdout ,"Conv3 Forwarding\n");
 	fp_preact_c3<<<128, 128>>>((float (*)[4][4])l_s2.output, l_c3.preact, (float (*)[16][4][4])l_c3.weight);
 	fp_bias_c3<<<128, 128>>>(l_c3.preact, l_c3.bias);
 	apply_step_function<<<128, 128>>>(l_c3.preact, l_c3.output, l_c3.O);
 	
-	//fprintf(stdout ,"Full1\n");
+	fprintf(stdout ,"Full1 Forwarding\n");
 	fp_preact_f1<<<128, 128>>>(l_c3.output, l_f1.preact, (float (*)[120])l_f1.weight);
 	fp_bias_f1<<<128, 128>>>(l_f1.preact, l_f1.bias);
 	apply_step_function<<<128, 128>>>(l_f1.preact, l_f1.output, l_f1.O);
 	
-	//fprintf(stdout ,"Full2\n");
+	fprintf(stdout ,"Full2 Forwarding\n");
 	fp_preact_f2<<<128, 128>>>(l_f2.output, l_f2.preact, (float (*)[84])l_f2.weight);
 	fp_bias_f2<<<128, 128>>>(l_f2.preact, l_f2.bias);
 	apply_step_function<<<128, 128>>>(l_f2.preact, l_f2.output, l_f2.O);
 
-	//fprintf(stdout ,"forward pass done!!\n");
+	fprintf(stdout ,"forward pass done!!\n");
 	end = clock();
 	return ((double) (end - start)) / CLOCKS_PER_SEC;
 }
@@ -121,42 +121,47 @@ static double back_pass()
 	clock_t start, end;
 
 	start = clock();
-
+	fprintf(stdout ,"Full2 Backwarding\n");
 	bp_weight_f2<<<128, 128>>>((float (*)[84])l_f2.d_weight, l_f2.d_preact, l_f1.output);
 	bp_bias_f2<<<128, 128>>>(l_f2.bias, l_f2.d_preact);
-
+	
+	fprintf(stdout ,"Full1 Backwarding\n");
 	bp_output_f1<<<128, 128>>>(l_f1.d_output, (float (*)[84])l_f2.weight, l_f2.d_preact);
 	bp_preact_f1<<<128, 128>>>(l_f1.d_preact, l_f1.d_output, l_f1.preact);
 	bp_weight_f1<<<128, 128>>>((float (*)[120])l_f1.d_weight, l_f1.d_preact, l_c3.output);
 	bp_bias_f1<<<128, 128>>>(l_f1.bias, l_f1.d_preact);
 
+	fprintf(stdout ,"Conv3 Backwarding\n");
 	bp_output_c3<<<128, 128>>>(l_c3.d_output, (float (*)[120])l_f1.weight, l_f1.d_preact);
 	bp_preact_c3<<<128, 128>>>(l_c3.d_preact, l_c3.d_output, l_c3.preact);
 	bp_weight_c3<<<128, 128>>>((float (*)[16][4][4])l_c3.d_weight, l_c3.d_preact, (float (*)[4][4])l_s2.output);
 	bp_bias_c3<<<128, 128>>>(l_c3.bias, l_c3.d_preact);
 
+	fprintf(stdout ,"Pool2 Backwarding\n");
 	bp_output_s2<<<128, 128>>>((float (*)[4][4])l_s2.d_output, (float (*)[16][4][4])l_c3.weight, l_c3.d_preact);
 	bp_preact_s2<<<128, 128>>>((float (*)[4][4])l_s2.d_preact, (float (*)[4][4])l_s2.d_output, (float (*)[4][4])l_s2.preact);
 	bp_weight_s2<<<128, 128>>>((float (*)[2][2])l_s2.d_weight, (float (*)[4][4])l_s2.d_preact, (float (*)[8][8])l_c2.output);
 	bp_bias_s2<<<128, 128>>>(l_s2.bias, (float (*)[4][4])l_s2.d_preact);
 	
+	fprintf(stdout ,"Conv2 Backwarding\n");
 	bp_output_c2<<<128, 128>>>((float (*)[8][8])l_c2.d_output, (float (*)[2][2])l_s2.weight, (float (*)[4][4])l_s2.d_preact);
 	bp_preact_c2<<<128, 128>>>((float (*)[8][8])l_c2.d_preact, (float (*)[8][8])l_c2.d_output, (float (*)[8][8])l_c2.preact);
 	bp_weight_c2<<<128, 128>>>((float (*)[6][5][5])l_c2.d_weight, (float (*)[8][8])l_c2.d_preact, (float (*)[12][12])l_s1.output);
 	bp_bias_c2<<<128, 128>>>(l_c2.bias, (float (*)[8][8])l_c2.d_preact);
 
-
+	fprintf(stdout ,"Pool1 Backwarding\n");
 	bp_output_s1<<<128, 128>>>((float (*)[12][12])l_s1.d_output, (float (*)[6][5][5])l_c2.weight, (float (*)[8][8])l_c2.d_preact);
 	bp_preact_s1<<<128, 128>>>((float (*)[12][12])l_s1.d_preact, (float (*)[12][12])l_s1.d_output, (float (*)[12][12])l_s1.preact);
 	bp_weight_s1<<<128, 128>>>((float (*)[2][2])l_s1.d_weight, (float (*)[12][12])l_s1.d_preact, (float (*)[24][24])l_c1.output);
 	bp_bias_s1<<<128, 128>>>(l_s1.bias, (float (*)[12][12])l_s1.d_preact);
 
+	fprintf(stdout ,"Conv1 Backwarding\n");
 	bp_output_c1<<<128, 128>>>((float (*)[24][24])l_c1.d_output, (float (*)[2][2])l_s1.weight, (float (*)[12][12])l_s1.d_preact);
 	bp_preact_c1<<<128, 128>>>((float (*)[24][24])l_c1.d_preact, (float (*)[24][24])l_c1.d_output, (float (*)[24][24])l_c1.preact);
 	bp_weight_c1<<<128, 128>>>((float (*)[5][5])l_c1.d_weight, (float (*)[24][24])l_c1.d_preact, (float (*)[28])l_input.output);
 	bp_bias_c1<<<128, 128>>>(l_c1.bias, (float (*)[24][24])l_c1.d_preact);
 
-
+	fprintf(stdout ,"Update Weight\n");
 	apply_grad<<<128, 128>>>(l_f2.weight, l_f2.d_weight, l_f2.M * l_f2.N);
 	apply_grad<<<128, 128>>>(l_f1.weight, l_f1.d_weight, l_f1.M * l_f1.N);
 	apply_grad<<<128, 128>>>(l_c3.weight, l_c3.d_weight, l_c3.M * l_c3.N);
@@ -192,7 +197,7 @@ static void learn()
 	//cublasCreate(&blas);
 
 	float err;
-	int iter = 10;
+	int iter = 1;
 	
 	double time_taken = 0.0;
 
@@ -201,7 +206,7 @@ static void learn()
 	while (iter < 0 || iter-- > 0) {
 		err = 0.0f;
 
-		for (int i = 0; i < train_cnt; ++i) {
+		for (int i = 0; i < 1; ++i) {
 			float tmp_err;
 			//fprintf(stdout ,"Before Forward_Pass\n %d\n", i);
 			time_taken += forward_pass(train_set[i].data);
@@ -217,7 +222,7 @@ static void learn()
 			// Euclid distance of train_set[i]
 			makeError<<<10, 1>>>(l_f2.d_preact, l_f2.output, train_set[i].label, 10);
 			//cublasSnrm2(blas, 10, l_f.d_preact, 1, &tmp_err);
-			tmp_err = 0.01;
+			tmp_err = 0.3;
 			err += tmp_err;
 			//fprintf(stdout ,"Before Backward_Pass\n");
 			time_taken += back_pass();
@@ -226,11 +231,12 @@ static void learn()
 
 		err /= train_cnt;
 		fprintf(stdout, "error: %e, time_on_gpu: %lf\n", err, time_taken);
-
+		/*
 		if (err < threshold) {
 			fprintf(stdout, "Training complete, error less than threshold\n\n");
 			break;
 		}
+		*/
 
 	}
 	
@@ -247,7 +253,7 @@ static unsigned int classify(double data[28][28])
 
 	unsigned int max = 0;
 
-	//cudaMemcpy(res, l_f.output, sizeof(float) * 10, cudaMemcpyDeviceToHost);
+	cudaMemcpy(res, l_f2.output, sizeof(float) * 10, cudaMemcpyDeviceToHost);
 
 	for (int i = 1; i < 10; ++i) {
 		if (res[max] < res[i]) {
